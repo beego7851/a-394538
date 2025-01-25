@@ -3,6 +3,7 @@ import PaymentStatistics from './financials/PaymentStatistics';
 import CollectorsSummary from './financials/CollectorsSummary';
 import AllPaymentsTable from './financials/AllPaymentsTable';
 import PaymentTrackingSection from './financials/PaymentTrackingSection';
+import PaymentSearch from './financials/payment-search/PaymentSearch';
 import { DashboardTabs, DashboardTabsList, DashboardTabsTrigger, DashboardTabsContent } from "@/components/ui/dashboard-tabs";
 import MemberStatsView from './members/MemberStatsView';
 
@@ -31,6 +32,7 @@ const FinancialsView = () => {
         </DashboardTabsContent>
 
         <DashboardTabsContent value="payments" className="mt-6">
+          <PaymentSearch />
           <PaymentTrackingSection />
           <AllPaymentsTable />
         </DashboardTabsContent>
