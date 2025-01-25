@@ -6,6 +6,7 @@ import { Mail, Clock, ChartBar, Settings } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { format } from 'date-fns';
 
 const EmailManagementCard = () => {
   const { toast } = useToast();
@@ -30,6 +31,20 @@ const EmailManagementCard = () => {
       };
       
       return stats;
+    }
+  });
+
+  const { data: queuedEmails, isLoading: queueLoading } = useQuery({
+    queryKey: ['queued-emails'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_logs')
+        .select('id, member_number, email_type, created_at')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
     }
   });
 
@@ -79,6 +94,7 @@ const EmailManagementCard = () => {
       if (error) throw error;
 
       await queryClient.invalidateQueries({ queryKey: ['email-stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['queued-emails'] });
 
       toast({
         title: "Queue Processed",
@@ -125,74 +141,106 @@ const EmailManagementCard = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
-            <h3 className="text-sm text-dashboard-text mb-2">Last 24 Hours</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-dashboard-text">Pending</span>
-                <span className="text-dashboard-accent1">{statsLoading ? '...' : emailStats?.pending}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-dashboard-text">Sent</span>
-                <span className="text-dashboard-accent3">{statsLoading ? '...' : emailStats?.sent}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-dashboard-text">Failed</span>
-                <span className="text-dashboard-error">{statsLoading ? '...' : emailStats?.failed}</span>
+        <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
+              <h3 className="text-sm text-dashboard-text mb-2">Last 24 Hours</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-dashboard-text">Pending</span>
+                  <span className="text-dashboard-accent1">{statsLoading ? '...' : emailStats?.pending}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-dashboard-text">Sent</span>
+                  <span className="text-dashboard-accent3">{statsLoading ? '...' : emailStats?.sent}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-dashboard-text">Failed</span>
+                  <span className="text-dashboard-error">{statsLoading ? '...' : emailStats?.failed}</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
-            <h3 className="text-sm text-dashboard-text mb-2">Categories</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-dashboard-text">Payment</span>
-                <span className="text-dashboard-accent1">{statsLoading ? '...' : emailStats?.payment}</span>
+            
+            <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
+              <h3 className="text-sm text-dashboard-text mb-2">Categories</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-dashboard-text">Payment</span>
+                  <span className="text-dashboard-accent1">{statsLoading ? '...' : emailStats?.payment}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-dashboard-text">General</span>
+                  <span className="text-dashboard-accent1">{statsLoading ? '...' : emailStats?.general}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-dashboard-text">General</span>
-                <span className="text-dashboard-accent1">{statsLoading ? '...' : emailStats?.general}</span>
-              </div>
+            </div>
+
+            <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
+              <h3 className="text-sm text-dashboard-text mb-2">Queue Settings</h3>
+              {configLoading ? (
+                <div className="text-dashboard-text">Loading settings...</div>
+              ) : (
+                <div className="space-y-4">
+                  {queueConfig?.map((config) => (
+                    <div key={config.id} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-dashboard-text" />
+                        <span className="text-dashboard-text capitalize">{config.category}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ChartBar className="w-4 h-4 text-dashboard-text" />
+                        <span className="text-dashboard-text text-sm">Daily Limit:</span>
+                        <Input
+                          type="number"
+                          value={config.daily_limit}
+                          onChange={(e) => handleConfigUpdate(config.id, 'daily_limit', e.target.value)}
+                          className="w-20 h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-dashboard-text" />
+                        <span className="text-dashboard-text text-sm">Process Interval (min):</span>
+                        <Input
+                          type="number"
+                          value={config.auto_process_interval}
+                          onChange={(e) => handleConfigUpdate(config.id, 'auto_process_interval', e.target.value)}
+                          className="w-20 h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
-            <h3 className="text-sm text-dashboard-text mb-2">Queue Settings</h3>
-            {configLoading ? (
-              <div className="text-dashboard-text">Loading settings...</div>
-            ) : (
-              <div className="space-y-4">
-                {queueConfig?.map((config) => (
-                  <div key={config.id} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-dashboard-text" />
-                      <span className="text-dashboard-text capitalize">{config.category}</span>
+            <h3 className="text-sm text-dashboard-text mb-4">Pending Emails</h3>
+            {queueLoading ? (
+              <div className="text-dashboard-text">Loading pending emails...</div>
+            ) : queuedEmails && queuedEmails.length > 0 ? (
+              <div className="space-y-2">
+                {queuedEmails.map((email) => (
+                  <div 
+                    key={email.id}
+                    className="flex justify-between items-center p-2 rounded bg-dashboard-dark/50"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-dashboard-text font-medium">
+                        {email.member_number}
+                      </span>
+                      <span className="text-sm text-dashboard-text/70">
+                        {email.email_type}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <ChartBar className="w-4 h-4 text-dashboard-text" />
-                      <span className="text-dashboard-text text-sm">Daily Limit:</span>
-                      <Input
-                        type="number"
-                        value={config.daily_limit}
-                        onChange={(e) => handleConfigUpdate(config.id, 'daily_limit', e.target.value)}
-                        className="w-20 h-8 text-sm"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-dashboard-text" />
-                      <span className="text-dashboard-text text-sm">Process Interval (min):</span>
-                      <Input
-                        type="number"
-                        value={config.auto_process_interval}
-                        onChange={(e) => handleConfigUpdate(config.id, 'auto_process_interval', e.target.value)}
-                        className="w-20 h-8 text-sm"
-                      />
-                    </div>
+                    <span className="text-sm text-dashboard-text/70">
+                      {format(new Date(email.created_at), 'MMM d, yyyy HH:mm')}
+                    </span>
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="text-dashboard-text">No pending emails in queue</div>
             )}
           </div>
         </div>
