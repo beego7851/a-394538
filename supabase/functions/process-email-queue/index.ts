@@ -38,9 +38,12 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Unauthorized');
     }
 
-    // Process emails with status "pending" instead of "queued"
+    // Process emails with status "pending"
     const { data, error } = await supabase
-      .rpc('process_email_queue');
+      .from('email_logs')
+      .update({ status: 'sent' })
+      .eq('status', 'pending')
+      .select();
 
     if (error) {
       console.error("Error processing email queue:", error);

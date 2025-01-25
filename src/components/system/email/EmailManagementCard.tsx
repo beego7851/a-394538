@@ -78,6 +78,8 @@ const EmailManagementCard = () => {
 
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ['email-stats'] });
+
       toast({
         title: "Queue Processed",
         description: "Email queue has been processed successfully",
