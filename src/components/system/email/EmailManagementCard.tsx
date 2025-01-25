@@ -48,6 +48,20 @@ const EmailManagementCard = () => {
     }
   });
 
+  const { data: sentEmails, isLoading: sentLoading } = useQuery({
+    queryKey: ['sent-emails'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_logs')
+        .select('id, member_number, email_type, created_at')
+        .eq('status', 'sent')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
   const { data: queueConfig, isLoading: configLoading } = useQuery({
     queryKey: ['queue-config'],
     queryFn: async () => {
@@ -241,6 +255,36 @@ const EmailManagementCard = () => {
               </div>
             ) : (
               <div className="text-dashboard-text">No pending emails in queue</div>
+            )}
+          </div>
+
+          <div className="bg-dashboard-card/50 p-4 rounded-lg border border-white/10">
+            <h3 className="text-sm text-dashboard-text mb-4">Sent Emails</h3>
+            {sentLoading ? (
+              <div className="text-dashboard-text">Loading sent emails...</div>
+            ) : sentEmails && sentEmails.length > 0 ? (
+              <div className="space-y-2">
+                {sentEmails.map((email) => (
+                  <div 
+                    key={email.id}
+                    className="flex justify-between items-center p-2 rounded bg-dashboard-dark/50"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-dashboard-text font-medium">
+                        {email.member_number}
+                      </span>
+                      <span className="text-sm text-dashboard-text/70">
+                        {email.email_type}
+                      </span>
+                    </div>
+                    <span className="text-sm text-dashboard-text/70">
+                      {format(new Date(email.created_at), 'MMM d, yyyy HH:mm')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-dashboard-text">No sent emails</div>
             )}
           </div>
         </div>
