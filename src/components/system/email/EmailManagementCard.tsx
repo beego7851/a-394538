@@ -23,7 +23,7 @@ const EmailManagementCard = () => {
       
       const stats = {
         pending: data.filter(log => log.status === 'pending').length,
-        sent: data.filter(log => log.status === 'delivered').length,
+        sent: data.filter(log => log.status === 'sent').length,
         failed: data.filter(log => log.status === 'failed').length,
         payment: data.filter(log => log.email_category === 'payment').length,
         general: data.filter(log => log.email_category === 'general').length
@@ -82,7 +82,7 @@ const EmailManagementCard = () => {
 
       toast({
         title: "Queue Processed",
-        description: "Email queue has been processed successfully",
+        description: `Successfully processed ${data?.processed || 0} emails`,
       });
     } catch (error: any) {
       console.error('Error processing queue:', error);

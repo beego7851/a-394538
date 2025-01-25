@@ -39,15 +39,32 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Process emails with status "pending"
-    const { data, error } = await supabase
+    const { data: emailsToProcess, error: fetchError } = await supabase
       .from('email_logs')
-      .update({ status: 'sent' })
+      .select('*')
       .eq('status', 'pending')
-      .select();
+      .order('created_at', { ascending: true });
 
-    if (error) {
-      console.error("Error processing email queue:", error);
-      throw error;
+    if (fetchError) {
+      console.error("Error fetching pending emails:", fetchError);
+      throw fetchError;
+    }
+
+    console.log(`Found ${emailsToProcess?.length || 0} pending emails to process`);
+
+    if (emailsToProcess && emailsToProcess.length > 0) {
+      const { error: updateError } = await supabase
+        .from('email_logs')
+        .update({ 
+          status: 'sent',
+          sent_at: new Date().toISOString()
+        })
+        .in('id', emailsToProcess.map(email => email.id));
+
+      if (updateError) {
+        console.error("Error updating email statuses:", updateError);
+        throw updateError;
+      }
     }
 
     console.log("Email queue processed successfully");
@@ -56,6 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: "Email queue processed successfully",
+        processed: emailsToProcess?.length || 0,
         timestamp: new Date().toISOString()
       }),
       {
