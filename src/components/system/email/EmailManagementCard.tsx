@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Clock, ChartBar, Settings } from "lucide-react";
+import { Mail, Clock, ChartBar, Settings, Filter, CreditCard } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const EmailManagementCard = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [filterType, setFilterType] = useState<string>('all');
 
   const { data: emailStats, isLoading: statsLoading } = useQuery({
     queryKey: ['email-stats'],
@@ -39,7 +41,7 @@ const EmailManagementCard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_logs')
-        .select('id, member_number, email_type, created_at')
+        .select('id, member_number, email_type, created_at, email_category')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
       
@@ -53,7 +55,7 @@ const EmailManagementCard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_logs')
-        .select('id, member_number, email_type, created_at')
+        .select('id, member_number, email_type, created_at, email_category')
         .eq('status', 'sent')
         .order('created_at', { ascending: false });
       
@@ -138,6 +140,14 @@ const EmailManagementCard = () => {
     });
   };
 
+  const filteredQueuedEmails = queuedEmails?.filter(email => 
+    filterType === 'all' || email.email_category === filterType
+  );
+
+  const filteredSentEmails = sentEmails?.filter(email => 
+    filterType === 'all' || email.email_category === filterType
+  );
+
   return (
     <Card className="bg-dashboard-card border-white/10">
       <CardHeader>
@@ -146,12 +156,25 @@ const EmailManagementCard = () => {
             <Mail className="w-5 h-5 text-dashboard-accent1" />
             <CardTitle className="text-xl text-white">Email Management</CardTitle>
           </div>
-          <Button 
-            onClick={processQueue}
-            className="bg-dashboard-accent1 hover:bg-dashboard-accent1/80"
-          >
-            Process Queue
-          </Button>
+          <div className="flex items-center gap-4">
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[180px] bg-dashboard-dark">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Emails</SelectItem>
+                <SelectItem value="payment">Payment Emails</SelectItem>
+                <SelectItem value="general">General Emails</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              onClick={processQueue}
+              className="bg-dashboard-accent1 hover:bg-dashboard-accent1/80"
+            >
+              Process Queue
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -232,20 +255,25 @@ const EmailManagementCard = () => {
             <h3 className="text-sm text-dashboard-text mb-4">Pending Emails</h3>
             {queueLoading ? (
               <div className="text-dashboard-text">Loading pending emails...</div>
-            ) : queuedEmails && queuedEmails.length > 0 ? (
+            ) : filteredQueuedEmails && filteredQueuedEmails.length > 0 ? (
               <div className="space-y-2">
-                {queuedEmails.map((email) => (
+                {filteredQueuedEmails.map((email) => (
                   <div 
                     key={email.id}
                     className="flex justify-between items-center p-2 rounded bg-dashboard-dark/50"
                   >
-                    <div className="flex flex-col">
-                      <span className="text-dashboard-text font-medium">
-                        {email.member_number}
-                      </span>
-                      <span className="text-sm text-dashboard-text/70">
-                        {email.email_type}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      {email.email_category === 'payment' && (
+                        <CreditCard className="w-4 h-4 text-green-400" />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-dashboard-text font-medium">
+                          {email.member_number}
+                        </span>
+                        <span className="text-sm text-dashboard-text/70">
+                          {email.email_type}
+                        </span>
+                      </div>
                     </div>
                     <span className="text-sm text-dashboard-text/70">
                       {format(new Date(email.created_at), 'MMM d, yyyy HH:mm')}
@@ -262,20 +290,25 @@ const EmailManagementCard = () => {
             <h3 className="text-sm text-dashboard-text mb-4">Sent Emails</h3>
             {sentLoading ? (
               <div className="text-dashboard-text">Loading sent emails...</div>
-            ) : sentEmails && sentEmails.length > 0 ? (
+            ) : filteredSentEmails && filteredSentEmails.length > 0 ? (
               <div className="space-y-2">
-                {sentEmails.map((email) => (
+                {filteredSentEmails.map((email) => (
                   <div 
                     key={email.id}
                     className="flex justify-between items-center p-2 rounded bg-dashboard-dark/50"
                   >
-                    <div className="flex flex-col">
-                      <span className="text-dashboard-text font-medium">
-                        {email.member_number}
-                      </span>
-                      <span className="text-sm text-dashboard-text/70">
-                        {email.email_type}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      {email.email_category === 'payment' && (
+                        <CreditCard className="w-4 h-4 text-green-400" />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-dashboard-text font-medium">
+                          {email.member_number}
+                        </span>
+                        <span className="text-sm text-dashboard-text/70">
+                          {email.email_type}
+                        </span>
+                      </div>
                     </div>
                     <span className="text-sm text-dashboard-text/70">
                       {format(new Date(email.created_at), 'MMM d, yyyy HH:mm')}
